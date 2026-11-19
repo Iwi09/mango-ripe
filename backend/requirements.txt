@@ -1,0 +1,9 @@
+
+fastapi
+uvicorn
+python-multipart
+numpy
+opencv-python
+joblib
+scikit-learn==1.6.1
+imbalanced-learn==0.13.0
