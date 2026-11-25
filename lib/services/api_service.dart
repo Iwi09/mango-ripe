@@ -17,8 +17,10 @@ class ApiService {
       Uri.parse('$baseUrl/predict'),
     );
 
+    // Nama field harus "model_name" (dibaca oleh backend main.py)
     request.fields['model_name'] = modelName;
 
+    // Gambar dikirim apa adanya (bytes asli, tanpa resize/kompresi)
     request.files.add(
       http.MultipartFile.fromBytes(
         'file',
@@ -27,18 +29,43 @@ class ApiService {
       ),
     );
 
-    final response = await request.send();
+    // LOG: cek apa yang dikirim ke server
+    debugPrint('KIRIM model_name = $modelName, file = ${image.name}');
 
-    final responseBody = await response.stream.bytesToString();
+    final http.StreamedResponse response;
+    final String responseBody;
 
-    final result = jsonDecode(responseBody);
+    try {
+      response = await request.send().timeout(const Duration(seconds: 30));
+      responseBody = await response.stream.bytesToString();
+    } catch (e) {
+      throw Exception(
+        'Tidak dapat terhubung ke server ($baseUrl). '
+        'Pastikan backend sudah berjalan.\n$e',
+      );
+    }
 
-    if (response.statusCode == 200) {
+    // LOG: cek jawaban mentah dari server
+    debugPrint('STATUS = ${response.statusCode}');
+    debugPrint('JAWABAN = $responseBody');
+
+    dynamic result;
+    try {
+      result = jsonDecode(responseBody);
+    } catch (_) {
+      throw Exception(
+        'Respons server tidak valid (status ${response.statusCode}).',
+      );
+    }
+
+    if (response.statusCode == 200 && result is Map<String, dynamic>) {
       return result;
     }
 
+    final detail = (result is Map) ? result['detail'] : null;
+
     throw Exception(
-      result['detail'] ?? 'Gagal melakukan deteksi'
+      detail?.toString() ?? 'Gagal melakukan deteksi',
     );
   }
 }

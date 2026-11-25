@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../login_screen.dart'; // memakai warna (kBg, kPrimary, dst.)
 import 'result_screen.dart';
 
 class DetectionScreen extends StatefulWidget {
@@ -17,10 +19,12 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
   Future<void> pickImage(ImageSource source) async {
     try {
+      // PERBAIKAN: imageQuality dihapus supaya gambar TIDAK dikompres ulang.
+      // Fitur HSV sensitif terhadap perubahan warna, jadi gambar yang dikirim
+      // ke backend harus sama dengan gambar aslinya.
       final XFile? selectedImage = await picker.pickImage(
         source: source,
         preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 90,
       );
 
       if (selectedImage != null) {
@@ -44,10 +48,15 @@ class _DetectionScreenState extends State<DetectionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBg,
       appBar: AppBar(
+        backgroundColor: kBg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: kText),
         title: const Text(
           'Deteksi Mangga',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.w700, color: kText),
         ),
       ),
       body: Padding(
@@ -59,7 +68,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
               'Masukkan Gambar Mangga',
               style: TextStyle(
                 fontSize: 22,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
+                color: kText,
               ),
             ),
 
@@ -67,7 +77,7 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
             const Text(
               'Pilih gambar buah mangga yang ingin diperiksa tingkat kematangannya.',
-              style: TextStyle(color: Colors.grey, height: 1.5),
+              style: TextStyle(color: kMuted, height: 1.5),
             ),
 
             const SizedBox(height: 25),
@@ -77,10 +87,8 @@ class _DetectionScreenState extends State<DetectionScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.grey.shade300,
-                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: kBorder, width: 1.5),
                 ),
                 child: image == null
                     ? const Column(
@@ -89,17 +97,17 @@ class _DetectionScreenState extends State<DetectionScreen> {
                           Icon(
                             Icons.add_photo_alternate_outlined,
                             size: 75,
-                            color: Color(0xFF347A45),
+                            color: kPrimary,
                           ),
                           SizedBox(height: 15),
                           Text(
                             'Belum ada gambar dipilih',
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(color: kMuted),
                           ),
                         ],
                       )
                     : ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
                         child: Image.memory(
                           imageBytes!,
                           fit: BoxFit.contain,
@@ -125,7 +133,13 @@ class _DetectionScreenState extends State<DetectionScreen> {
               label: const Text('Pilih dari Galeri'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 52),
-                foregroundColor: const Color(0xFF347A45),
+                foregroundColor: kLink,
+                side: const BorderSide(color: kBorder, width: 1.5),
+                textStyle: const TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.w700),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
               ),
             ),
 
@@ -156,9 +170,13 @@ class _DetectionScreenState extends State<DetectionScreen> {
 
   ButtonStyle buttonStyle() {
     return ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF347A45),
-      foregroundColor: Colors.white,
+      backgroundColor: kPrimary,
+      foregroundColor: kOnPrimary,
+      disabledBackgroundColor: kChip,
+      disabledForegroundColor: kMuted,
+      elevation: 0,
       minimumSize: const Size(double.infinity, 52),
+      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
       ),

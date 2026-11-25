@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import 'detection_screen.dart';
 import 'history_screen.dart';
+import 'package:mango_detection/login_screen.dart'; // memakai warna (kBg, kPrimary, dst.) dan MangoLogo
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -8,25 +10,24 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Header: logo + nama aplikasi
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE4F1E4),
-                      borderRadius: BorderRadius.circular(15),
+                      color: kPrimary,
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(
-                      Icons.eco,
-                      color: Color(0xFF347A45),
-                      size: 28,
-                    ),
+                    child: const Center(child: MangoLogo(size: 30)),
                   ),
                   const SizedBox(width: 12),
                   const Column(
@@ -36,15 +37,13 @@ class HomeScreen extends StatelessWidget {
                         'Mango Detection',
                         style: TextStyle(
                           fontSize: 19,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
+                          color: kText,
                         ),
                       ),
                       Text(
                         'Deteksi Kematangan Mangga',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
+                        style: TextStyle(color: kMuted, fontSize: 12),
                       ),
                     ],
                   ),
@@ -57,7 +56,8 @@ class HomeScreen extends StatelessWidget {
                 'Selamat Datang!',
                 style: TextStyle(
                   fontSize: 27,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  color: kText,
                 ),
               ),
 
@@ -65,20 +65,17 @@ class HomeScreen extends StatelessWidget {
 
               const Text(
                 'Kenali tingkat kematangan buah mangga dengan mudah menggunakan teknologi Computer Vision.',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 14,
-                  height: 1.6,
-                ),
+                style: TextStyle(color: kMuted, fontSize: 14, height: 1.6),
               ),
 
               const SizedBox(height: 25),
 
+              // Kartu utama
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(22),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF347A45),
+                  color: kPrimary,
                   borderRadius: BorderRadius.circular(24),
                 ),
                 child: Column(
@@ -87,25 +84,21 @@ class HomeScreen extends StatelessWidget {
                     const Text(
                       'Deteksi Kematangan Mangga',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: kOnPrimary,
                         fontSize: 21,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-
                     const SizedBox(height: 10),
-
                     const Text(
                       'Upload atau ambil foto buah mangga untuk mengetahui tingkat kematangannya.',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: kOnPrimary,
                         fontSize: 13,
                         height: 1.5,
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.push(
@@ -118,9 +111,14 @@ class HomeScreen extends StatelessWidget {
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('Mulai Deteksi'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFD54F),
-                        foregroundColor: Colors.black87,
-                        minimumSize: const Size(double.infinity, 50),
+                        backgroundColor: kText,
+                        foregroundColor: kBg,
+                        elevation: 0,
+                        minimumSize: const Size(double.infinity, 52),
+                        textStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
                         ),
@@ -136,7 +134,8 @@ class HomeScreen extends StatelessWidget {
                 'Kategori Kematangan',
                 style: TextStyle(
                   fontSize: 19,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  color: kText,
                 ),
               ),
 
@@ -148,7 +147,7 @@ class HomeScreen extends StatelessWidget {
                     child: categoryCard(
                       'Mentah',
                       'Hijau',
-                      Colors.green,
+                      const Color(0xFF3F7D20),
                       Icons.eco,
                     ),
                   ),
@@ -157,7 +156,7 @@ class HomeScreen extends StatelessWidget {
                     child: categoryCard(
                       'Matang',
                       'Kuning',
-                      Colors.amber,
+                      kPrimary,
                       Icons.wb_sunny,
                     ),
                   ),
@@ -166,7 +165,7 @@ class HomeScreen extends StatelessWidget {
                     child: categoryCard(
                       'Lewat Matang',
                       'Cokelat',
-                      Colors.brown,
+                      const Color(0xFF7A4B2A),
                       Icons.warning_amber,
                     ),
                   ),
@@ -179,7 +178,8 @@ class HomeScreen extends StatelessWidget {
                 'Menu Lainnya',
                 style: TextStyle(
                   fontSize: 19,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w700,
+                  color: kText,
                 ),
               ),
 
@@ -238,7 +238,7 @@ class HomeScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: kBorder),
       ),
       child: Column(
         children: [
@@ -248,17 +248,15 @@ class HomeScreen extends StatelessWidget {
             title,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w700,
               fontSize: 12,
+              color: kText,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: kMuted, fontSize: 11),
           ),
         ],
       ),
@@ -280,11 +278,11 @@ class HomeScreen extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: kBorder),
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF347A45), size: 27),
+            Icon(icon, color: kLink, size: 27),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
@@ -293,22 +291,20 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w700,
                       fontSize: 14,
+                      color: kText,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: kMuted, fontSize: 12),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 15),
+            const Icon(Icons.arrow_forward_ios, size: 15, color: kMuted),
           ],
         ),
       ),
