@@ -1,6 +1,6 @@
-
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Query
 from fastapi.middleware.cors import CORSMiddleware
+from typing import Optional
 
 import numpy as np
 import cv2
@@ -16,9 +16,9 @@ app = FastAPI(
     title="API Deteksi Kematangan Mangga",
     description=(
         "API untuk mendeteksi tingkat kematangan "
-        "buah mangga menggunakan metode SVM dan Naive Bayes"
+        "buah mangga menggunakan model SVM"
     ),
-    version="1.0"
+    version="1.2"
 )
 
 
@@ -42,8 +42,9 @@ app.add_middleware(
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_DIR = os.path.join(BASE_DIR, "model")
 
-NB_PATH = os.path.join(MODEL_DIR, "naive_bayes.pkl")
 SVM_PATH = os.path.join(MODEL_DIR, "svm.pkl")
+KELAS_KEMATANGAN = {"OverRipe", "Ripe", "UnRipe"}
+SUMBER_MODEL = "asadullahprl/fruits-ripeness-classification-dataset@v1"
 
 
 print("\n========================================")
@@ -74,20 +75,33 @@ naive_bayes = None
 svm = None
 
 
+def validasi_kelas_model(model, nama_model):
+    kelas_model = getattr(model, "classes_", None)
+
+    if kelas_model is None:
+        raise RuntimeError(
+            f"Model {nama_model} tidak memiliki informasi kelas."
+        )
+
+    kelas_model = {str(kelas) for kelas in kelas_model}
+
+    if kelas_model != KELAS_KEMATANGAN:
+        raise RuntimeError(
+            f"Kelas model {nama_model} tidak sesuai. "
+            f"Diharapkan {sorted(KELAS_KEMATANGAN)}, "
+            f"ditemukan {sorted(kelas_model)}."
+        )
+
+
 def muat_model():
 
-    global naive_bayes, svm
+    global svm
 
     try:
 
-        if os.path.exists(NB_PATH):
-            naive_bayes = joblib.load(NB_PATH)
-            print("\nModel Naive Bayes berhasil dimuat.")
-        else:
-            print("\nFile naive_bayes.pkl tidak ditemukan.")
-
         if os.path.exists(SVM_PATH):
             svm = joblib.load(SVM_PATH)
+            validasi_kelas_model(svm, "SVM")
             print("Model SVM berhasil dimuat.")
         else:
             print("File svm.pkl tidak ditemukan.")
@@ -101,10 +115,10 @@ def muat_model():
 muat_model()
 
 
-if naive_bayes is None and svm is None:
+if svm is None:
     raise RuntimeError(
-        "Tidak ada model yang berhasil dimuat. "
-        "Periksa file model di folder backend/model."
+        "Model SVM tidak berhasil dimuat. "
+        "Periksa file backend/model/svm.pkl."
     )
 
 
@@ -113,20 +127,6 @@ if naive_bayes is None and svm is None:
 print("\n========================================")
 print("             INFORMASI MODEL")
 print("========================================")
-
-
-if naive_bayes is not None:
-
-    print("Naive Bayes :", type(naive_bayes).__name__)
-
-    print(
-        "Jumlah fitur NB:",
-        getattr(
-            naive_bayes,
-            "n_features_in_",
-            "Tidak tersedia"
-        )
-    )
 
 
 if svm is not None:
@@ -148,32 +148,54 @@ if svm is not None:
 # ==========================================
 
 def ekstraksi_fitur(gambar):
+    """
+    HARUS sama persis dengan extract_hsv_features() di notebook training:
+    1. resize 224x224
+    2. BGR -> HSV
+    3. crop bagian tengah (20% - 80%)
+    4. per channel: mean, std, histogram 16 bin
+       (H: range 0-180, S dan V: range 0-256)
+    Total fitur = 3 x (2 + 16) = 54
+    """
 
     try:
 
-        # Memastikan gambar valid
         if gambar is None:
             raise ValueError("Gambar tidak valid.")
 
-        # Konversi BGR ke HSV
+        # 1. Resize
+        gambar = cv2.resize(gambar, (224, 224))
+
+        # 2. Konversi BGR ke HSV
         hsv = cv2.cvtColor(
             gambar,
             cv2.COLOR_BGR2HSV
         )
 
+        # 3. Crop bagian tengah gambar
+        tinggi, lebar = hsv.shape[:2]
+
+        hsv = hsv[
+            int(tinggi * 0.2):int(tinggi * 0.8),
+            int(lebar * 0.2):int(lebar * 0.8)
+        ]
+
         fitur = []
 
-        # Ekstraksi histogram 3 channel HSV
+        # 4. Mean, std, dan histogram tiap channel
         for channel in range(3):
 
             data = hsv[:, :, channel]
 
+            fitur.append(np.mean(data))
+            fitur.append(np.std(data))
+
             hist = cv2.calcHist(
-                [data],
-                [0],
+                [hsv],
+                [channel],
                 None,
-                [18],
-                [0, 256]
+                [16],
+                [0, 180] if channel == 0 else [0, 256]
             )
 
             hist = cv2.normalize(
@@ -183,10 +205,9 @@ def ekstraksi_fitur(gambar):
 
             fitur.extend(hist)
 
-        # Total fitur = 18 x 3 = 54
         fitur = np.array(
             fitur,
-            dtype=np.float32
+            dtype=np.float64
         ).reshape(1, -1)
 
         return fitur
@@ -199,7 +220,54 @@ def ekstraksi_fitur(gambar):
 
 
 # ==========================================
-# 6. HALAMAN UTAMA API
+# 6. NORMALISASI NAMA METODE
+# ==========================================
+
+def normalisasi_metode(nilai):
+    """
+    Menyamakan berbagai penulisan metode dari Flutter, misalnya:
+    'Naive Bayes', 'naive bayes', 'naive-bayes', 'NB'  -> 'naive_bayes'
+    'SVM', 'svm'                                       -> 'svm'
+    """
+
+    if not nilai:
+        return "svm"
+
+    nilai = (
+        str(nilai)
+        .lower()
+        .strip()
+        .replace(" ", "_")
+        .replace("-", "_")
+    )
+
+    if nilai in ["svm"]:
+        return "svm"
+
+    if nilai in ["naive_bayes", "naivebayes", "nb"]:
+        return "naive_bayes"
+
+    return nilai
+
+
+def pilih_model(metode):
+    if metode != "svm":
+        raise HTTPException(
+            status_code=400,
+            detail="Aplikasi menggunakan SVM saja karena hasil validasinya lebih baik."
+        )
+
+    if svm is None:
+        raise HTTPException(
+            status_code=500,
+            detail="Model SVM belum tersedia."
+        )
+
+    return svm
+
+
+# ==========================================
+# 7. HALAMAN UTAMA API
 # ==========================================
 
 @app.get("/")
@@ -223,13 +291,20 @@ def home():
 
 
 # ==========================================
-# 7. ENDPOINT PREDIKSI MANGGA
+# 8. ENDPOINT PREDIKSI MANGGA
 # ==========================================
 
 @app.post("/predict")
 async def predict(
     file: UploadFile = File(...),
-    metode: str = "svm"
+
+    # PERBAIKAN: metode bisa dikirim lewat form-data ATAU query string
+    metode_form: Optional[str] = Form(None, alias="metode"),
+    metode_query: Optional[str] = Query(None, alias="metode"),
+
+    # Flutter mengirim field bernama "model_name", jadi ikut diterima
+    model_name_form: Optional[str] = Form(None, alias="model_name"),
+    model_name_query: Optional[str] = Query(None, alias="model_name"),
 ):
 
     try:
@@ -274,6 +349,18 @@ async def predict(
 
         fitur = ekstraksi_fitur(gambar)
 
+        # ----------------------------------
+        # D. MENENTUKAN METODE
+        # ----------------------------------
+
+        metode_mentah = (
+            metode_form
+            or metode_query
+            or model_name_form
+            or model_name_query
+        )
+        metode = normalisasi_metode(metode_mentah)
+
         print("\n================================")
         print("       PROSES PREDIKSI")
         print("================================")
@@ -281,45 +368,20 @@ async def predict(
         print("Nama file :", file.filename)
         print("Ukuran gambar :", gambar.shape)
         print("Jumlah fitur :", fitur.shape[1])
-        print("Metode :", metode)
+        print("Metode diterima (form) :", metode_form)
+        print("Metode diterima (query):", metode_query)
+        print("model_name diterima (form) :", model_name_form)
+        print("model_name diterima (query):", model_name_query)
+        print("Metode dipakai :", metode)
 
         # ----------------------------------
-        # D. MEMILIH MODEL
+        # E. MEMILIH MODEL
         # ----------------------------------
 
-        metode = metode.lower().strip()
-
-        if metode == "svm":
-
-            if svm is None:
-
-                raise HTTPException(
-                    status_code=500,
-                    detail="Model SVM belum tersedia."
-                )
-
-            model = svm
-
-        elif metode in ["naive_bayes", "nb"]:
-
-            if naive_bayes is None:
-
-                raise HTTPException(
-                    status_code=500,
-                    detail="Model Naive Bayes belum tersedia."
-                )
-
-            model = naive_bayes
-
-        else:
-
-            raise HTTPException(
-                status_code=400,
-                detail="Metode harus svm atau naive_bayes."
-            )
+        model = pilih_model(metode)
 
         # ----------------------------------
-        # E. MEMERIKSA JUMLAH FITUR
+        # F. MEMERIKSA JUMLAH FITUR
         # ----------------------------------
 
         jumlah_fitur = getattr(
@@ -343,7 +405,7 @@ async def predict(
             )
 
         # ----------------------------------
-        # F. MELAKUKAN PREDIKSI
+        # G. MELAKUKAN PREDIKSI
         # ----------------------------------
 
         hasil = model.predict(fitur)[0]
@@ -351,28 +413,36 @@ async def predict(
         print("Hasil prediksi :", hasil)
 
         # ----------------------------------
-        # G. MENGAMBIL PROBABILITAS
+        # H. MENGAMBIL PROBABILITAS
         # ----------------------------------
 
         probabilitas = None
 
         if hasattr(model, "predict_proba"):
 
-            proba = model.predict_proba(fitur)[0]
+            try:
 
-            probabilitas = {
-                str(label): round(
-                    float(nilai) * 100,
-                    2
-                )
-                for label, nilai in zip(
-                    model.classes_,
-                    proba
-                )
-            }
+                proba = model.predict_proba(fitur)[0]
+
+                probabilitas = {
+                    str(label): round(
+                        float(nilai) * 100,
+                        2
+                    )
+                    for label, nilai in zip(
+                        model.classes_,
+                        proba
+                    )
+                }
+
+            except Exception as e:
+
+                # SVM tanpa probability=True akan error di sini,
+                # prediksi tetap dikembalikan tanpa probabilitas
+                print("Probabilitas tidak tersedia:", str(e))
 
         # ----------------------------------
-        # H. MENGEMBALIKAN HASIL
+        # I. MENGEMBALIKAN HASIL
         # ----------------------------------
 
         return {
@@ -399,30 +469,31 @@ async def predict(
 
 
 # ==========================================
-# 8. CEK STATUS MODEL
+# 9. CEK STATUS MODEL
 # ==========================================
 
 @app.get("/model-status")
 def model_status():
 
     return {
-        "naive_bayes": naive_bayes is not None,
+        "naive_bayes": False,
         "svm": svm is not None,
+        "training_dataset": SUMBER_MODEL,
         "status": "aktif"
     }
 
 
 # ==========================================
-# 9. CEK FITUR EKSTRAKSI
+# 10. CEK FITUR EKSTRAKSI
 # ==========================================
 
 @app.get("/feature-status")
 def feature_status():
 
     return {
-        "metode_ekstraksi": "HSV Histogram",
+        "metode_ekstraksi": "HSV mean, std, histogram (crop tengah 224x224)",
         "channel": ["H", "S", "V"],
-        "jumlah_bin_per_channel": 18,
+        "jumlah_bin_per_channel": 16,
         "total_fitur": 54,
         "status": "aktif"
     }
